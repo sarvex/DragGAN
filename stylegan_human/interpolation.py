@@ -43,8 +43,7 @@ def slerp(code1, code2, alpha, DOT_THRESHOLD=0.9995): # Spherical linear interpo
 
     s0 = np.sin(theta_0 - theta_t) / sin_theta_0
     s1 = sin_theta_t / sin_theta_0
-    code3 = s0 * code1_copy + s1 * code2_copy
-    return code3
+    return s0 * code1_copy + s1 * code2_copy
 
 def generate_image_from_z(G, z, noise_mode, truncation_psi, device):
     label = torch.zeros([1, G.c_dim], device=device)
@@ -128,7 +127,7 @@ def main(
 
     if len(seeds) > 2: 
         print("Receiving more than two seeds, only use the first two.")
-        seeds = seeds[0:2]
+        seeds = seeds[:2]
     elif len(seeds) == 1: 
         print('Require two seeds, randomly generate two now.')
         seeds = [seeds[0],random.randint(0,10000)]

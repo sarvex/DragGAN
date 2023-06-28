@@ -55,8 +55,9 @@ def save_concat_image(base_dir, image_latents, new_inv_image_latent, new_G,
     images_to_save = []
     if extra_image is not None:
         images_to_save.append(extra_image)
-    for latent in image_latents:
-        images_to_save.append(get_image_from_w(latent, old_G))
+    images_to_save.extend(
+        get_image_from_w(latent, old_G) for latent in image_latents
+    )
     images_to_save.append(get_image_from_w(new_inv_image_latent, new_G))
     result_image = create_alongside_images(images_to_save)
     result_image.save(f'{base_dir}/{file_name}.jpg')

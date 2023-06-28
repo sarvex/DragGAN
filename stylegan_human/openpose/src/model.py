@@ -17,7 +17,7 @@ def make_layers(block, no_relu_layers):
                                padding=v[4])
             layers.append((layer_name, conv2d))
             if layer_name not in no_relu_layers:
-                layers.append(('relu_'+layer_name, nn.ReLU(inplace=True)))
+                layers.append((f'relu_{layer_name}', nn.ReLU(inplace=True)))
 
     return nn.Sequential(OrderedDict(layers))
 
@@ -27,10 +27,9 @@ class bodypose_model(nn.Module):
 
         # these layers have no relu layer
         no_relu_layers = ['conv5_5_CPM_L1', 'conv5_5_CPM_L2', 'Mconv7_stage2_L1',\
-                          'Mconv7_stage2_L2', 'Mconv7_stage3_L1', 'Mconv7_stage3_L2',\
-                          'Mconv7_stage4_L1', 'Mconv7_stage4_L2', 'Mconv7_stage5_L1',\
-                          'Mconv7_stage5_L2', 'Mconv7_stage6_L1', 'Mconv7_stage6_L1']
-        blocks = {}
+                              'Mconv7_stage2_L2', 'Mconv7_stage3_L1', 'Mconv7_stage3_L2',\
+                              'Mconv7_stage4_L1', 'Mconv7_stage4_L2', 'Mconv7_stage5_L1',\
+                              'Mconv7_stage5_L2', 'Mconv7_stage6_L1', 'Mconv7_stage6_L1']
         block0 = OrderedDict([
                       ('conv1_1', [3, 64, 3, 1, 1]),
                       ('conv1_2', [64, 64, 3, 1, 1]),
@@ -66,9 +65,7 @@ class bodypose_model(nn.Module):
                         ('conv5_4_CPM_L2', [128, 512, 1, 1, 0]),
                         ('conv5_5_CPM_L2', [512, 19, 1, 1, 0])
                     ])
-        blocks['block1_1'] = block1_1
-        blocks['block1_2'] = block1_2
-
+        blocks = {'block1_1': block1_1, 'block1_2': block1_2}
         self.model0 = make_layers(block0, no_relu_layers)
 
         # Stages 2 - 6
@@ -93,7 +90,7 @@ class bodypose_model(nn.Module):
                     ('Mconv7_stage%d_L2' % i, [128, 19, 1, 1, 0])
                 ])
 
-        for k in blocks.keys():
+        for k in blocks:
             blocks[k] = make_layers(blocks[k], no_relu_layers)
 
         self.model1_1 = blocks['block1_1']
@@ -146,7 +143,7 @@ class handpose_model(nn.Module):
 
         # these layers have no relu layer
         no_relu_layers = ['conv6_2_CPM', 'Mconv7_stage2', 'Mconv7_stage3',\
-                          'Mconv7_stage4', 'Mconv7_stage5', 'Mconv7_stage6']
+                              'Mconv7_stage4', 'Mconv7_stage5', 'Mconv7_stage6']
         # stage 1
         block1_0 = OrderedDict([
                 ('conv1_1', [3, 64, 3, 1, 1]),
@@ -174,10 +171,7 @@ class handpose_model(nn.Module):
             ('conv6_2_CPM', [512, 22, 1, 1, 0])
         ])
 
-        blocks = {}
-        blocks['block1_0'] = block1_0
-        blocks['block1_1'] = block1_1
-
+        blocks = {'block1_0': block1_0, 'block1_1': block1_1}
         # stage 2-6
         for i in range(2, 7):
             blocks['block%d' % i] = OrderedDict([
@@ -190,7 +184,7 @@ class handpose_model(nn.Module):
                     ('Mconv7_stage%d' % i, [128, 22, 1, 1, 0])
                 ])
 
-        for k in blocks.keys():
+        for k in blocks:
             blocks[k] = make_layers(blocks[k], no_relu_layers)
 
         self.model1_0 = blocks['block1_0']
@@ -213,7 +207,6 @@ class handpose_model(nn.Module):
         concat_stage5 = torch.cat([out_stage4, out1_0], 1)
         out_stage5 = self.model5(concat_stage5)
         concat_stage6 = torch.cat([out_stage5, out1_0], 1)
-        out_stage6 = self.model6(concat_stage6)
-        return out_stage6
+        return self.model6(concat_stage6)
 
 

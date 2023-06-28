@@ -31,9 +31,8 @@ def parse_range(s: Union[str, List]) -> List[int]:
     ranges = []
     range_re = re.compile(r'^(\d+)-(\d+)$')
     for p in s.split(','):
-        m = range_re.match(p)
-        if m:
-            ranges.extend(range(int(m.group(1)), int(m.group(2))+1))
+        if m := range_re.match(p):
+            ranges.extend(range(int(m[1]), int(m[2]) + 1))
         else:
             ranges.append(int(p))
     return ranges
@@ -102,7 +101,7 @@ def generate_images(
         --network=https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfacesu-1024x1024.pkl
     """
 
-    print('Loading networks from "%s"...' % network_pkl)
+    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     dtype = torch.float32 if device.type == 'mps' else torch.float64
     with dnnlib.util.open_url(network_pkl) as f:
@@ -116,14 +115,14 @@ def generate_images(
 
     # Labels.
     label = torch.zeros([1, G.c_dim], device=device)
-    if G.c_dim != 0:
-        if class_idx is None:
-            raise click.ClickException('Must specify class label with --class when using a conditional network')
-        label[:, class_idx] = 1
-    else:
+    if G.c_dim == 0:
         if class_idx is not None:
             print ('warn: --class=lbl ignored when running on an unconditional network')
 
+    elif class_idx is None:
+        raise click.ClickException('Must specify class label with --class when using a conditional network')
+    else:
+        label[:, class_idx] = 1
     # Generate images.
     for seed_idx, seed in enumerate(seeds):
         print('Generating image for seed %d (%d/%d) ...' % (seed, seed_idx, len(seeds)))

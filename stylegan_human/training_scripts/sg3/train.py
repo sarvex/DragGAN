@@ -120,9 +120,7 @@ def init_dataset_kwargs(data, square=False):
 def parse_comma_separated_list(s):
     if isinstance(s, list):
         return s
-    if s is None or s.lower() == 'none' or s == '':
-        return []
-    return s.split(',')
+    return [] if s is None or s.lower() == 'none' or s == '' else s.split(',')
 
 #----------------------------------------------------------------------------
 

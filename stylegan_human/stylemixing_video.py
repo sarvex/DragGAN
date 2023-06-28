@@ -45,7 +45,6 @@ python stylemixing_video.py --network=pretrained_models/stylegan_human_v2_1024.p
 @click.option('--fps', 'mp4_fps', type=int, help='FPS of generated video (default: %(default)s)', default=10)
 @click.option('--indent-range', 'indent_range', type=int, default=30)
 @click.option('--outdir', help='Root directory for run results (default: %(default)s)', default='outputs/stylemixing_video', metavar='DIR')
-
 def style_mixing_video(network_pkl: str,
                        src_seed: List[int],                # Seed of the source image style (row)
                        dst_seeds: List[int],               # Seeds of the destination image styles (columns)
@@ -64,21 +63,21 @@ def style_mixing_video(network_pkl: str,
     # Calculate the number of frames:
     print('col_seeds: ', dst_seeds)
     num_frames = int(np.rint(duration_sec * mp4_fps))
-    print('Loading networks from "%s"...' % network_pkl)
+    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     dtype = torch.float32 if device.type == 'mps' else torch.float64
     with dnnlib.util.open_url(network_pkl) as f:
         Gs = legacy.load_network_pkl(f)['G_ema'].to(device, dtype=dtype) 
 
-    print(Gs.num_ws, Gs.w_dim, Gs.img_resolution) 
+    print(Gs.num_ws, Gs.w_dim, Gs.img_resolution)
     max_style = int(2 * np.log2(Gs.img_resolution)) - 3
     assert max(col_styles) <= max_style, f"Maximum col-style allowed: {max_style}"
 
     # Left col latents
     print('Generating Source W vectors...')
-    src_shape = [num_frames] + [Gs.z_dim] 
+    src_shape = [num_frames] + [Gs.z_dim]
     src_z = np.random.RandomState(*src_seed).randn(*src_shape).astype(np.float32) # [frames, src, component]
-    src_z = scipy.ndimage.gaussian_filter(src_z, [smoothing_sec * mp4_fps] + [0] * (2- 1), mode="wrap") 
+    src_z = scipy.ndimage.gaussian_filter(src_z, [smoothing_sec * mp4_fps] + [0] * (2- 1), mode="wrap")
     src_z /= np.sqrt(np.mean(np.square(src_z)))
     # Map into the detangled latent space W and do truncation trick
     src_w = Gs.mapping(torch.from_numpy(src_z).to(device, dtype=dtype), None)
@@ -86,8 +85,8 @@ def style_mixing_video(network_pkl: str,
     src_w = w_avg + (src_w - w_avg) * truncation_psi
 
     # Top row latents (fixed reference)
-    print('Generating Destination W vectors...')  
-    dst_z = np.stack([np.random.RandomState(seed).randn(Gs.z_dim) for seed in dst_seeds]) 
+    print('Generating Destination W vectors...')
+    dst_z = np.stack([np.random.RandomState(seed).randn(Gs.z_dim) for seed in dst_seeds])
     dst_w = Gs.mapping(torch.from_numpy(dst_z).to(device, dtype=dtype), None)
     dst_w = w_avg + (dst_w - w_avg) * truncation_psi
     # Get the width and height of each image:
@@ -134,7 +133,7 @@ def style_mixing_video(network_pkl: str,
                     ((col + 1) * (W - indent_range), (row + 1) * H),
                 )
         return np.array(canvas)
-    
+
     # Generate video using make_frame:
     print('Generating style-mixed video...')
     videoclip = moviepy.editor.VideoClip(make_frame, duration=duration_sec)

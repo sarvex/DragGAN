@@ -43,7 +43,7 @@ class MultiIDCoach(BaseCoach):
             images.append((image_name, image))
             self.image_counter += 1
 
-        for i in tqdm(range(hyperparameters.max_pti_steps)):
+        for _ in tqdm(range(hyperparameters.max_pti_steps)):
             self.image_counter = 0
 
             for data, w_pivot in zip(images, w_pivots):
@@ -72,8 +72,7 @@ class MultiIDCoach(BaseCoach):
 
         # torch.save(self.G,
         #            f'{paths_config.checkpoints_dir}/model_{global_config.run_name}_multi_id.pt')
-        snapshot_data = dict()
-        snapshot_data['G_ema'] = self.G
+        snapshot_data = {'G_ema': self.G}
         import pickle
         with open(f'{paths_config.checkpoints_dir}/model_{global_config.run_name}_multi_id.pkl', 'wb') as f: 
                 pickle.dump(snapshot_data, f)

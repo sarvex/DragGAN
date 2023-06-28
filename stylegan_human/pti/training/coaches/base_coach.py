@@ -84,24 +84,27 @@ class BaseCoach:
 
     def calc_inversions(self, image, image_name):
         if hyperparameters.first_inv_type == 'w+':
-            w = self.get_e4e_inversion(image)
+            return self.get_e4e_inversion(image)
 
-        else:
-            id_image = torch.squeeze((image.to(global_config.device) + 1) / 2) * 255
-            w = w_projector.project(self.G, id_image, device=torch.device(global_config.device), w_avg_samples=600,
-                                    num_steps=hyperparameters.first_inv_steps, w_name=image_name,
-                                    use_wandb=self.use_wandb)
-
-        return w
+        id_image = torch.squeeze((image.to(global_config.device) + 1) / 2) * 255
+        return w_projector.project(
+            self.G,
+            id_image,
+            device=torch.device(global_config.device),
+            w_avg_samples=600,
+            num_steps=hyperparameters.first_inv_steps,
+            w_name=image_name,
+            use_wandb=self.use_wandb,
+        )
 
     @abc.abstractmethod
     def train(self):
         pass
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.G.parameters(), lr=hyperparameters.pti_learning_rate)
-
-        return optimizer
+        return torch.optim.Adam(
+            self.G.parameters(), lr=hyperparameters.pti_learning_rate
+        )
 
     def calc_loss(self, generated_images, real_images, log_name, new_G, use_ball_holder, w_batch):
         loss = 0.0
@@ -125,9 +128,7 @@ class BaseCoach:
         return loss, l2_loss_val, loss_lpips
 
     def forward(self, w):
-        generated_images = self.G.synthesis(w, noise_mode='const', force_fp32=True)
-
-        return generated_images
+        return self.G.synthesis(w, noise_mode='const', force_fp32=True)
 
     def initilize_e4e(self):
         ckpt = torch.load(paths_config.e4e, map_location='cpu')

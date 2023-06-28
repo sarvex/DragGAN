@@ -65,7 +65,7 @@ def _tuple_of_ints(xs, ndim):
 
 #----------------------------------------------------------------------------
 
-_conv2d_gradfix_cache = dict()
+_conv2d_gradfix_cache = {}
 
 def _conv2d_gradfix(transpose, weight_shape, stride, padding, output_padding, dilation, groups):
     # Parse arguments.

@@ -34,12 +34,11 @@ def get_pil_font(font=None, size=32):
 #----------------------------------------------------------------------------
 
 def get_array(string, *, dropshadow_radius: int=None, **kwargs):
-    if dropshadow_radius is not None:
-        offset_x = int(np.ceil(dropshadow_radius*2/3))
-        offset_y = int(np.ceil(dropshadow_radius*2/3))
-        return _get_array_priv(string, dropshadow_radius=dropshadow_radius, offset_x=offset_x, offset_y=offset_y, **kwargs)
-    else:
+    if dropshadow_radius is None:
         return _get_array_priv(string, **kwargs)
+    offset_x = int(np.ceil(dropshadow_radius*2/3))
+    offset_y = int(np.ceil(dropshadow_radius*2/3))
+    return _get_array_priv(string, dropshadow_radius=dropshadow_radius, offset_x=offset_x, offset_y=offset_y, **kwargs)
 
 @functools.lru_cache(maxsize=10000)
 def _get_array_priv(

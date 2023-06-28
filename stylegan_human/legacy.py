@@ -53,9 +53,7 @@ def load_network_pkl(f, force_fp16=False, G_only=False):
 
     # Force FP16.
     if force_fp16:
-        if G_only:
-            convert_list = ['G_ema'] #'G'
-        else: convert_list = ['G', 'D', 'G_ema']
+        convert_list = ['G_ema'] if G_only else ['G', 'D', 'G_ema']
         for key in convert_list:
             old = data[key]
             kwargs = copy.deepcopy(old.init_kwargs)
@@ -87,9 +85,8 @@ def num_range(s: str) -> List[int]:
     '''Accept either a comma separated list of numbers 'a,b,c' or a range 'a-c' and return as a list of ints.'''
 
     range_re = re.compile(r'^(\d+)-(\d+)$')
-    m = range_re.match(s)
-    if m:
-        return list(range(int(m.group(1)), int(m.group(2))+1))
+    if m := range_re.match(s):
+        return list(range(int(m[1]), int(m[2]) + 1))
     vals = s.split(',')
     return [int(x) for x in vals]
 
@@ -151,8 +148,8 @@ def determine_config(state_nv):
     mapping_names = [name for name in state_nv.keys() if "mapping.fc" in name]
     sythesis_names = [name for name in state_nv.keys() if "synthesis.b" in name]
 
-    n_mapping =  max([int(re.findall("(\d+)", n)[0]) for n in mapping_names]) + 1
-    resolution =  max([int(re.findall("(\d+)", n)[0]) for n in sythesis_names])
+    n_mapping = max(int(re.findall("(\d+)", n)[0]) for n in mapping_names) + 1
+    resolution = max(int(re.findall("(\d+)", n)[0]) for n in sythesis_names)
     n_layers = np.log(resolution/2)/np.log(2)
 
     return n_mapping, n_layers
@@ -179,9 +176,11 @@ def convert(network_pkl, output_file, G_only=False):
 
             convert_to_rgb(state_ros, state_nv, f"to_rgbs.{i-1}", f"synthesis.b{4*(2**i)}")
             convert_blur_kernel(state_ros, state_nv, i-1)
-        
+
         else:
-            state_ros[f"input.input"] = state_nv[f"synthesis.b{4*(2**i)}.const"].unsqueeze(0)
+            state_ros["input.input"] = state_nv[
+                f"synthesis.b{4*(2**i)}.const"
+            ].unsqueeze(0)
             convert_conv(state_ros, state_nv, "conv1", f"synthesis.b{4*(2**i)}.conv1")
             state_ros[f"noises.noise_{2*i}"] = state_nv[f"synthesis.b{4*(2**i)}.conv1.noise_const"].unsqueeze(0).unsqueeze(0)
             convert_to_rgb(state_ros, state_nv, "to_rgb1", f"synthesis.b{4*(2**i)}")

@@ -38,7 +38,7 @@ def crop_img_with_padding(img, keypoints, rect):
     img_h,img_w,_ = img.shape    ## find body center using keypoints
     middle_shoulder_x = keypoints[1][0]
     middle_hip_x = (keypoints[8][0] + keypoints[11][0]) // 2
-    mid_x = (middle_hip_x + middle_shoulder_x) // 2    
+    mid_x = (middle_hip_x + middle_shoulder_x) // 2
     mid_y = (ymin + ymax) // 2
     ## find which side (l or r) is further than center x, use the further side
     if abs(mid_x-person_xmin) > abs(person_xmax-mid_x): #left further
@@ -71,8 +71,8 @@ def crop_img_with_padding(img, keypoints, rect):
             pad_right = 0
             xmax = xmax_prime
 
-        cropped_img = img[int(ymin):int(ymax), int(xmin):int(xmax)]
-        im_pad = cv2.copyMakeBorder(cropped_img, 0, 0, int(pad_left),  int(pad_right), cv2.BORDER_REPLICATE) 
+        cropped_img = img[int(ymin):int(ymax), xmin:int(xmax)]
+        im_pad = cv2.copyMakeBorder(cropped_img, 0, 0, int(pad_left),  int(pad_right), cv2.BORDER_REPLICATE)
     else: #pad vertically
         target_h = w * 2
         ymin_prime = mid_y - (target_h / 2)
@@ -93,9 +93,8 @@ def crop_img_with_padding(img, keypoints, rect):
 
         cropped_img = img[int(ymin):int(ymax), int(xmin):int(xmax)]
         im_pad = cv2.copyMakeBorder(cropped_img, int(pad_up), int(pad_down), 0,
-                                    0, cv2.BORDER_REPLICATE) 
-    result = cv2.resize(im_pad,(512,1024),interpolation = cv2.INTER_AREA)
-    return result
+                                    0, cv2.BORDER_REPLICATE)
+    return cv2.resize(im_pad,(512,1024),interpolation = cv2.INTER_AREA)
 
 
 def run(args):
@@ -109,17 +108,18 @@ def run(args):
     print('Num of dataloader : ', total)
     os.makedirs(f'{args.output_folder}', exist_ok=True)
     # os.makedirs(f'{args.output_folder}/middle_result', exist_ok=True)
-    
+
     ## initialzide HumenSeg
-    human_seg_args = {}
-    human_seg_args['cfg'] = 'PP_HumanSeg/export_model/deeplabv3p_resnet50_os8_humanseg_512x512_100k_with_softmax/deploy.yaml'
-    human_seg_args['input_shape'] = [1024,512]
-    human_seg_args['save_dir'] = args.output_folder
-    human_seg_args['soft_predict'] = False
-    human_seg_args['use_gpu'] = True
-    human_seg_args['test_speed'] = False
-    human_seg_args['use_optic_flow'] = False
-    human_seg_args['add_argmax'] = True
+    human_seg_args = {
+        'cfg': 'PP_HumanSeg/export_model/deeplabv3p_resnet50_os8_humanseg_512x512_100k_with_softmax/deploy.yaml',
+        'input_shape': [1024, 512],
+        'save_dir': args.output_folder,
+        'soft_predict': False,
+        'use_gpu': True,
+        'test_speed': False,
+        'use_optic_flow': False,
+        'add_argmax': True,
+    }
     human_seg_args= argparse.Namespace(**human_seg_args)
     human_seg = PP_HumenSeg_Predictor(human_seg_args)
 
@@ -129,7 +129,7 @@ def run(args):
         ## tensor to numpy image
         fname = fname[0]
         print(f'Processing \'{fname}\'.')
-        
+
         image = (image.permute(0, 2, 3, 1) * 255).clamp(0, 255)
         image = image.squeeze(0).numpy() # --> tensor to numpy, (H,W,C)
         # avoid super high res img
@@ -157,9 +157,11 @@ def run(args):
         extBot = list(extBot)
         extTop = list(extTop)
         pad_range = int((extBot[1]-extTop[1])*0.05)
-        if (int(extTop[1])<=5 and int(extTop[1])>0) and (comb.shape[0]>int(extBot[1]) and int(extBot[1])>=comb.shape[0]-5): #seg mask already reaches to the edge
+        if (int(extTop[1]) <= 5 and int(extTop[1]) > 0) and comb.shape[
+            0
+        ] > int(extBot[1]) >= comb.shape[0] - 5: #seg mask already reaches to the edge
             #pad with pure white, top 100 px, bottom 100 px
-            comb= cv2.copyMakeBorder(comb,pad_range+5,pad_range+5,0,0,cv2.BORDER_CONSTANT,value=[255,255,255]) 
+            comb= cv2.copyMakeBorder(comb,pad_range+5,pad_range+5,0,0,cv2.BORDER_CONSTANT,value=[255,255,255])
         elif int(extTop[1])<=0 or int(extBot[1])>=comb.shape[0]:
             print('PAD: body out of boundary', fname) #should not happened
             return {}
@@ -186,7 +188,7 @@ def run(args):
         ## detect keypoints
         keypoints, subset = body_estimation(comb)
         # print(keypoints, subset, len(subset))
-        if len(subset) != 1 or (len(subset)==1 and subset[0][-1]<15): 
+        if len(subset) != 1 or subset[0][-1] < 15: 
             print(f'Processing \'{fname}\'. Please import image contains one person only. Also can check segmentation mask. ')
             continue
 
@@ -196,7 +198,7 @@ def run(args):
 
         comb = crop_img_with_padding(comb, keypoints, rect)
 
-        
+
         cv2.imwrite(f'{args.output_folder}/{fname}.png', comb)
         print(f' -- Finished processing \'{fname}\'. --')
         # except:
@@ -206,7 +208,7 @@ def run(args):
 if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = False
-    
+
     t1 = time.time()
     arg_formatter = argparse.ArgumentDefaultsHelpFormatter
     description = 'StyleGAN-Human data process'
@@ -220,4 +222,4 @@ if __name__ == '__main__':
     cmd_args = parser.parse_args()
     run(cmd_args)
 
-    print('total time elapsed: ', str(time.time() - t1))
+    print('total time elapsed: ', time.time() - t1)

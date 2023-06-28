@@ -40,7 +40,7 @@ class GradualStyleBlock(Module):
         modules = []
         modules += [Conv2d(in_c, out_c, kernel_size=3, stride=2, padding=1),
                     nn.LeakyReLU()]
-        for i in range(num_pools - 1):
+        for _ in range(num_pools - 1):
             modules += [
                 Conv2d(out_c, out_c, kernel_size=3, stride=2, padding=1),
                 nn.LeakyReLU()
@@ -70,10 +70,12 @@ class GradualStyleEncoder(Module):
                                       PReLU(64))
         modules = []
         for block in blocks:
-            for bottleneck in block:
-                modules.append(unit_module(bottleneck.in_channel,
-                                           bottleneck.depth,
-                                           bottleneck.stride))
+            modules.extend(
+                unit_module(
+                    bottleneck.in_channel, bottleneck.depth, bottleneck.stride
+                )
+                for bottleneck in block
+            )
         self.body = Sequential(*modules)
 
         self.styles = nn.ModuleList()
@@ -95,30 +97,26 @@ class GradualStyleEncoder(Module):
     def forward(self, x):
         x = self.input_layer(x)
 
-        latents = []
         modulelist = list(self.body._modules.values())
         for i, l in enumerate(modulelist):
             x = l(x)
-            if i == 6:
-                c1 = x
-            elif i == 20:
+            if i == 20:
                 c2 = x
             elif i == 23:
                 c3 = x
 
-        for j in range(self.coarse_ind):
-            latents.append(self.styles[j](c3))
-
+            elif i == 6:
+                c1 = x
+        latents = [self.styles[j](c3) for j in range(self.coarse_ind)]
         p2 = _upsample_add(c3, self.latlayer1(c2))
-        for j in range(self.coarse_ind, self.middle_ind):
-            latents.append(self.styles[j](p2))
-
+        latents.extend(
+            self.styles[j](p2) for j in range(self.coarse_ind, self.middle_ind)
+        )
         p1 = _upsample_add(p2, self.latlayer2(c1))
-        for j in range(self.middle_ind, self.style_count):
-            latents.append(self.styles[j](p1))
-
-        out = torch.stack(latents, dim=1)
-        return out
+        latents.extend(
+            self.styles[j](p1) for j in range(self.middle_ind, self.style_count)
+        )
+        return torch.stack(latents, dim=1)
 
 
 class Encoder4Editing(Module):
@@ -136,10 +134,12 @@ class Encoder4Editing(Module):
                                       PReLU(64))
         modules = []
         for block in blocks:
-            for bottleneck in block:
-                modules.append(unit_module(bottleneck.in_channel,
-                                           bottleneck.depth,
-                                           bottleneck.stride))
+            modules.extend(
+                unit_module(
+                    bottleneck.in_channel, bottleneck.depth, bottleneck.stride
+                )
+                for bottleneck in block
+            )
         self.body = Sequential(*modules)
 
         self.styles = nn.ModuleList()

@@ -48,7 +48,7 @@ def generate_style_mix(
     outdir: str
 ):
     
-    print('Loading networks from "%s"...' % network_pkl)
+    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     dtype = torch.float32 if device.type == 'mps' else torch.float64
     with dnnlib.util.open_url(network_pkl) as f:
@@ -62,7 +62,7 @@ def generate_style_mix(
     all_w = G.mapping(torch.from_numpy(all_z).to(device, dtype=dtype), None)
     w_avg = G.mapping.w_avg
     all_w = w_avg + (all_w - w_avg) * truncation_psi
-    w_dict = {seed: w for seed, w in zip(all_seeds, list(all_w))}
+    w_dict = dict(zip(all_seeds, list(all_w)))
 
     print('Generating images...')
     all_images = G.synthesis(all_w, noise_mode=noise_mode)
@@ -77,7 +77,7 @@ def generate_style_mix(
             image = G.synthesis(w[np.newaxis], noise_mode=noise_mode)
             image = (image.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
             image_dict[(row_seed, col_seed)] = image[0].cpu().numpy()
-    
+
     os.makedirs(outdir, exist_ok=True)
     # print('Saving images...')
     # for (row_seed, col_seed), image in image_dict.items():
@@ -85,7 +85,7 @@ def generate_style_mix(
 
     print('Saving image grid...')
     W = G.img_resolution // 2
-    H = G.img_resolution 
+    H = G.img_resolution
     canvas = PIL.Image.new('RGB', (W * (len(col_seeds) + 1), H * (len(row_seeds) + 1)), 'black')
     for row_idx, row_seed in enumerate([0] + row_seeds):
         for col_idx, col_seed in enumerate([0] + col_seeds):

@@ -57,8 +57,7 @@ class StyleGAN2Loss(Loss):
                 img = upfirdn2d.filter2d(img, f / f.sum())
         if self.augment_pipe is not None:
             img = self.augment_pipe(img)
-        logits = self.D(img, c, update_emas=update_emas)
-        return logits
+        return self.D(img, c, update_emas=update_emas)
 
     def accumulate_gradients(self, phase, real_img, real_c, gen_z, gen_c, gain, cur_nimg):
         assert phase in ['Gmain', 'Greg', 'Gboth', 'Dmain', 'Dreg', 'Dboth']
@@ -114,7 +113,7 @@ class StyleGAN2Loss(Loss):
         # Dr1: Apply R1 regularization.
         if phase in ['Dmain', 'Dreg', 'Dboth']:
             name = 'Dreal' if phase == 'Dmain' else 'Dr1' if phase == 'Dreg' else 'Dreal_Dr1'
-            with torch.autograd.profiler.record_function(name + '_forward'):
+            with torch.autograd.profiler.record_function(f'{name}_forward'):
                 real_img_tmp = real_img.detach().requires_grad_(phase in ['Dreg', 'Dboth'])
                 real_logits = self.run_D(real_img_tmp, real_c, blur_sigma=blur_sigma)
                 training_stats.report('Loss/scores/real', real_logits)
@@ -134,7 +133,7 @@ class StyleGAN2Loss(Loss):
                     training_stats.report('Loss/r1_penalty', r1_penalty)
                     training_stats.report('Loss/D/reg', loss_Dr1)
 
-            with torch.autograd.profiler.record_function(name + '_backward'):
+            with torch.autograd.profiler.record_function(f'{name}_backward'):
                 (loss_Dreal + loss_Dr1).mean().mul(gain).backward()
 
 #----------------------------------------------------------------------------
