@@ -18,7 +18,7 @@ def run_PTI(run_name='', use_wandb=False, use_multi_id_training=False):
     os.environ['CUDA_VISIBLE_DEVICES'] = global_config.cuda_visible_devices
 
     if run_name == '':
-        global_config.run_name = ''.join(choice(ascii_uppercase) for i in range(12))
+        global_config.run_name = ''.join(choice(ascii_uppercase) for _ in range(12))
     else:
         global_config.run_name = run_name
 

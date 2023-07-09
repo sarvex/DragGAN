@@ -49,9 +49,6 @@ python edit.py ---network outputs/pti/checkpoints/model_test.pkl --attr_name upp
 @click.option('--real', type=bool, help='True for editing real image', default=False)
 @click.option('--real_w_path',  help='Path of latent code for real image')
 @click.option('--real_img_path',  help='Path of real image, this just concat real image with inverted and edited results together')
-
-
-
 def main(
     ctx: click.Context,
     ckpt_path: str,
@@ -68,7 +65,7 @@ def main(
     ## convert pkl to pth
     # if not os.path.exists(ckpt_path.replace('.pkl','.pth')):
     legacy.convert(ckpt_path, ckpt_path.replace('.pkl','.pth'), G_only=real)
-    ckpt_path = ckpt_path.replace('.pkl','.pth') 
+    ckpt_path = ckpt_path.replace('.pkl','.pth')
     print("start...", flush=True)
     config = {"latent" : 512, "n_mlp" : 8, "channel_multiplier": 2}
     generator = Generator(
@@ -77,7 +74,7 @@ def main(
             n_mlp=config["n_mlp"],
             channel_multiplier=config["channel_multiplier"]
         )
-    
+
     generator.load_state_dict(torch.load(ckpt_path)['g_ema'])
     generator.eval().cuda()
 
@@ -88,9 +85,7 @@ def main(
             mean_latent = generator.mean_latent(mean_n).detach()
             legacy.save_obj(mean_latent, mean_path)
         else:
-            mean_latent = legacy.load_pkl(mean_path).cuda() 
-        finals = []
-
+            mean_latent = legacy.load_pkl(mean_path).cuda()
         ## -- selected sample seeds -- ##
         # seeds = [60948,60965,61174,61210,61511,61598,61610] #bottom -> long
         #         [60941,61064,61103,61313,61531,61570,61571] # bottom -> short
@@ -116,7 +111,7 @@ def main(
             else: # generate image from random seeds
                 test_input = torch.from_numpy(np.random.RandomState(t).randn(1, 512)).float().cuda()  # torch.Size([1, 512])
                 output, _ = generator([test_input], False, truncation=truncation, truncation_latent=mean_latent, real=real)
-            
+
             # interfacegan
             style_space, latent, noise = encoder_ifg(generator, test_input, attr_name, truncation, mean_latent,real=real)
             image1 = decoder(generator, style_space, latent, noise)
@@ -178,14 +173,12 @@ def main(
                     cmd=f"ffmpeg -hide_banner -loglevel error -y -r 30 -i {video_comb_path}/%05d.jpg -vcodec libx264 -pix_fmt yuv420p {video_ifg_path.replace('ifg_', '')[:-1] + '.mp4'}"
                     subprocess.call(cmd, shell=True)
                 else:
-                    cmd=f"ffmpeg -hide_banner -loglevel error -y -r 30 -i {video_ifg_path}/%05d.jpg -vcodec libx264 -pix_fmt yuv420p {video_ifg_path[:-1] + '.mp4'}"
+                    cmd = f"ffmpeg -hide_banner -loglevel error -y -r 30 -i {video_ifg_path}/%05d.jpg -vcodec libx264 -pix_fmt yuv420p {video_ifg_path[:-1]}.mp4"
                     subprocess.call(cmd, shell=True)
-                    cmd=f"ffmpeg -hide_banner -loglevel error -y -r 30 -i {video_ss_path}/%05d.jpg -vcodec libx264 -pix_fmt yuv420p {video_ss_path[:-1] + '.mp4'}"
+                    cmd = f"ffmpeg -hide_banner -loglevel error -y -r 30 -i {video_ss_path}/%05d.jpg -vcodec libx264 -pix_fmt yuv420p {video_ss_path[:-1]}.mp4"
                     subprocess.call(cmd, shell=True)
 
-        # interfacegan, stylespace, sefa
-        finals.append(final)
-
+        finals = [final]
         final = torch.cat(finals, 2)
         legacy.visual(final, os.path.join(outdir,'final.jpg'))
 

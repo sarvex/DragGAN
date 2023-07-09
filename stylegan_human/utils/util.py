@@ -67,8 +67,7 @@ def tensor_to_numpy(x):
     x = x[0].permute(1, 2, 0)
     x = torch.clamp(x, -1 ,1)
     x = (x+1) * 127.5
-    x = x.cpu().detach().numpy().astype(np.uint8)
-    return x
+    return x.cpu().detach().numpy().astype(np.uint8)
 
 def numpy_to_tensor(x):
     x = (x / 255 - 0.5) * 2

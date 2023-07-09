@@ -124,7 +124,7 @@ class InsetGAN(torch.nn.Module):
                        lr_rampup_length=0.05,
                        seed=None,
                        output_path=None,
-                       video=0): 
+                       video=0):
         '''
         Given a face_w, optimize a body_w with suitable body pose & shape for face_w
         '''
@@ -135,7 +135,7 @@ class InsetGAN(torch.nn.Module):
                 tmp = torch.cat([synth_body, tmp], dim=3)
             save_path = os.path.join(path, f"{step:04d}.jpg")
             visual(tmp, save_path)
-            
+
         def forward(face_w_opt, 
                     body_w_opt, 
                     face_w_delta,
@@ -149,24 +149,24 @@ class InsetGAN(torch.nn.Module):
                 face_ws = face_w_opt.clone()
             face_ws = face_ws + face_w_delta
             synth_face, _ = self.face_generator([face_ws], input_is_latent=True, randomize_noise=False)
-            
+
             body_ws = (body_w_opt).repeat([1, 18, 1])
             body_ws = body_ws + body_w_delta
             synth_body, _ = self.body_generator([body_ws], input_is_latent=True, randomize_noise=False)
-            
+
             if update_crop:
                 old_r = (body_crop[3]-body_crop[1]) // 2, (body_crop[2]-body_crop[0]) // 2
                 _, body_crop, _ = self.detect_face_dlib(synth_body)
                 center = (body_crop[1] + body_crop[3]) // 2, (body_crop[0] + body_crop[2]) // 2
                 body_crop = (center[1] - old_r[1], center[0] - old_r[0], center[1] + old_r[1], center[0] + old_r[0])
-            
+
             synth_body_face = synth_body[:, :, body_crop[1]:body_crop[3], body_crop[0]:body_crop[2]]
-            
+
             if synth_face.shape[2] > body_crop[3]-body_crop[1]:
                 synth_face_resize = F.interpolate(synth_face, size=(body_crop[3]-body_crop[1], body_crop[2]-body_crop[0]), mode='area')
-        
+
             return synth_body, synth_body_face, synth_face, synth_face_resize, body_crop
-                
+
         def update_lr(init_lr, step, num_steps, lr_rampdown_length, lr_rampup_length):
             t = step / num_steps
             lr_ramp = min(1.0, (1.0 - t) / lr_rampdown_length)
@@ -174,11 +174,11 @@ class InsetGAN(torch.nn.Module):
             lr_ramp = lr_ramp * min(1.0, t / lr_rampup_length)
             lr = init_lr * lr_ramp
             return lr
-        
+
         # update output_path
         output_path = os.path.join(output_path, seed)
         os.makedirs(output_path, exist_ok=True)
-        
+
         # define optimized params
         body_w_mean = self.body_generator.mean_latent(10000).detach()
         face_w_opt = face_w.clone().detach().requires_grad_(True)
@@ -195,7 +195,7 @@ class InsetGAN(torch.nn.Module):
         # create optimizer
         face_optimizer = torch.optim.Adam([face_w_opt, face_w_delta], betas=(0.9, 0.999), lr=face_initial_learning_rate)
         body_optimizer = torch.optim.Adam([body_w_opt, body_w_delta], betas=(0.9, 0.999), lr=body_initial_learning_rate)
-        
+
         global_step = 0
         # Stage1: remove background of face image
         face_steps = 25
@@ -226,13 +226,13 @@ class InsetGAN(torch.nn.Module):
                 )
             )
             global_step += 1
-            
+
         # Stage2: find a suitable body
         body_steps = 150
         pbar = tqdm(range(body_steps))
         for step in pbar:
             body_lr = update_lr(body_initial_learning_rate, step, body_steps, lr_rampdown_length, lr_rampup_length)
-            update_crop = True if (step % 50 == 0) else False
+            update_crop = step % 50 == 0
             # update_crop = False
             for param_group in body_optimizer.param_groups:
                 param_group['lr'] =body_lr
@@ -250,7 +250,7 @@ class InsetGAN(torch.nn.Module):
             body_optimizer.zero_grad()
             loss.backward()
             body_optimizer.step()     
-            
+
             # visualization
             if video:
                 visual_(output_path, synth_body, synth_face, body_crop, global_step)
@@ -259,9 +259,9 @@ class InsetGAN(torch.nn.Module):
                     f"body: {step:.4f}, lr: {body_lr}, loss: {loss.item():.2f}, loss_coarse: {loss_coarse.item():.2f};"
                     f"loss_border: {loss_border.item():.2f}, loss_body: {loss_body.item():.2f}, loss_reg: {loss_reg:.2f}"
                 )
-            )    
+            )
             global_step += 1
-        
+
         # Stage3: joint optimization
         interval = 50
         joint_face_steps = joint_steps // 2

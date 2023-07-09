@@ -14,7 +14,7 @@ import tensorflow as tf
 from .. import custom_ops
 
 def _get_plugin():
-    return custom_ops.get_plugin(os.path.splitext(__file__)[0] + '.cu')
+    return custom_ops.get_plugin(f'{os.path.splitext(__file__)[0]}.cu')
 
 #----------------------------------------------------------------------------
 
@@ -326,10 +326,7 @@ def conv_downsample_2d(x, w, k=None, factor=2, gain=1, data_format='NCHW', impl=
         k = [1] * factor
     k = _setup_kernel(k) * gain
     p = (k.shape[0] - factor) + (convW - 1)
-    if data_format == 'NCHW':
-        s = [1, 1, factor, factor]
-    else:
-        s = [1, factor, factor, 1]
+    s = [1, 1, factor, factor] if data_format == 'NCHW' else [1, factor, factor, 1]
     x = _simple_upfirdn_2d(x, k, pad0=(p+1)//2, pad1=p//2, data_format=data_format, impl=impl)
     return tf.nn.conv2d(x, w, strides=s, padding='VALID', data_format=data_format)
 

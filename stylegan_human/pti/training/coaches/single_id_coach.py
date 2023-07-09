@@ -36,9 +36,7 @@ class SingleIDCoach(BaseCoach):
 
             if hyperparameters.use_last_w_pivots:
                 w_pivot = self.load_inversions(w_path_dir, image_name)
-# Copyright (c) SenseTime Research. All rights reserved.
-
-            elif not hyperparameters.use_last_w_pivots or w_pivot is None:
+            else:
                 w_pivot = self.calc_inversions(image, image_name)
 
             # w_pivot = w_pivot.detach().clone().to(global_config.device)
@@ -82,8 +80,7 @@ class SingleIDCoach(BaseCoach):
 
             # torch.save(self.G,
             #            f'{paths_config.checkpoints_dir}/model_{image_name}.pt') #'.pt'
-            snapshot_data = dict()
-            snapshot_data['G_ema'] = self.G
+            snapshot_data = {'G_ema': self.G}
             import pickle
             with open(f'{paths_config.checkpoints_dir}/model_{image_name}.pkl', 'wb') as f:
                     pickle.dump(snapshot_data, f)

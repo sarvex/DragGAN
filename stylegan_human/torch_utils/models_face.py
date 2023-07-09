@@ -49,9 +49,7 @@ class Upsample(nn.Module):
         self.pad = (pad0, pad1)
 
     def forward(self, input):
-        out = upfirdn2d(input, self.kernel, up=self.factor, down=1, pad=self.pad)
-
-        return out
+        return upfirdn2d(input, self.kernel, up=self.factor, down=1, pad=self.pad)
 
 
 class Downsample(nn.Module):
@@ -70,9 +68,7 @@ class Downsample(nn.Module):
         self.pad = (pad0, pad1)
 
     def forward(self, input):
-        out = upfirdn2d(input, self.kernel, up=1, down=self.factor, pad=self.pad)
-
-        return out
+        return upfirdn2d(input, self.kernel, up=1, down=self.factor, pad=self.pad)
 
 
 class Blur(nn.Module):
@@ -89,9 +85,7 @@ class Blur(nn.Module):
         self.pad = pad
 
     def forward(self, input):
-        out = upfirdn2d(input, self.kernel, pad=self.pad)
-
-        return out
+        return upfirdn2d(input, self.kernel, pad=self.pad)
 
 
 class EqualConv2d(nn.Module):
@@ -108,22 +102,16 @@ class EqualConv2d(nn.Module):
         self.stride = stride
         self.padding = padding
 
-        if bias:
-            self.bias = nn.Parameter(torch.zeros(out_channel))
-
-        else:
-            self.bias = None
+        self.bias = nn.Parameter(torch.zeros(out_channel)) if bias else None
 
     def forward(self, input):
-        out = F.conv2d(
+        return F.conv2d(
             input,
             self.weight * self.scale,
             bias=self.bias,
             stride=self.stride,
             padding=self.padding,
         )
-
-        return out
 
     def __repr__(self):
         return (
@@ -302,9 +290,7 @@ class ConstantInput(nn.Module):
 
     def forward(self, input):
         batch = input.shape[0]
-        out = self.input.repeat(batch, 1, 1, 1)
-
-        return out
+        return self.input.repeat(batch, 1, 1, 1)
 
 
 class StyledConv(nn.Module):
@@ -389,13 +375,12 @@ class Generator(nn.Module):
 
         layers = [PixelNorm()]
 
-        for i in range(n_mlp):
-            layers.append(
-                EqualLinear(
-                    style_dim, style_dim, lr_mul=lr_mlp, activation="fused_lrelu"
-                )
+        layers.extend(
+            EqualLinear(
+                style_dim, style_dim, lr_mul=lr_mlp, activation="fused_lrelu"
             )
-
+            for _ in range(n_mlp)
+        )
         self.style = nn.Sequential(*layers)
 
         if small:
@@ -440,9 +425,7 @@ class Generator(nn.Module):
         for layer_idx in range(self.num_layers):
             res = (layer_idx + 5) // 2
             shape = [1, 1, 2 ** res, 2 ** res]
-            self.noises.register_buffer(
-                "noise_{}".format(layer_idx), torch.randn(*shape)
-            )
+            self.noises.register_buffer(f"noise_{layer_idx}", torch.randn(*shape))
 
         for i in range(3, self.log_size + 1):
             out_channel = self.channels[2 ** i]
@@ -476,18 +459,16 @@ class Generator(nn.Module):
         noises = [torch.randn(1, 1, 2 ** 2, 2 ** 2, device=device)]
 
         for i in range(3, self.log_size + 1):
-            for _ in range(2):
-                noises.append(torch.randn(1, 1, 2 ** i, 2 ** i, device=device))
-
+            noises.extend(
+                torch.randn(1, 1, 2**i, 2**i, device=device) for _ in range(2)
+            )
         return noises
 
     def mean_latent(self, n_latent):
         latent_in = torch.randn(
             n_latent, self.style_dim, device=self.input.input.device
         )
-        latent = self.style(latent_in).mean(0, keepdim=True)
-
-        return latent
+        return self.style(latent_in).mean(0, keepdim=True)
 
     def get_latent(self, input):
         return self.style(input)
@@ -511,24 +492,18 @@ class Generator(nn.Module):
             if randomize_noise:
                 noise = [None] * self.num_layers
             else:
-                noise = [
-                    getattr(self.noises, "noise_{}".format(i))
-                    for i in range(self.num_layers)
-                ]
+                noise = [getattr(self.noises, f"noise_{i}") for i in range(self.num_layers)]
 
         if truncation < 1:
-            style_t = []
-
-            for style in styles:
-                style_t.append(
-                    truncation_latent + truncation * (style - truncation_latent)
-                )
-
+            style_t = [
+                truncation_latent + truncation * (style - truncation_latent)
+                for style in styles
+            ]
             styles = style_t
         # print(styles)
         if len(styles) < 2:
             inject_index = self.n_latent
-            
+
             if styles[0].ndim < 3:
                 latent = styles[0].unsqueeze(1).repeat(1, inject_index, 1)
                 # print("a")
@@ -541,7 +516,7 @@ class Generator(nn.Module):
             # print("c")
             if inject_index is None:
                 inject_index = 4
-            
+
             latent = styles[0].unsqueeze(0)
             if latent.shape[1] == 1:
                 latent = latent.repeat(1, inject_index, 1)
@@ -551,9 +526,8 @@ class Generator(nn.Module):
 
             latent = torch.cat([latent, latent2], 1)
 
-        features = {}
         out = self.input(latent)
-        features["out_0"] = out
+        features = {"out_0": out}
         out = self.conv1(out, latent[:, 0], noise=noise[0])
         features["conv1_0"] = out
 
@@ -564,11 +538,11 @@ class Generator(nn.Module):
             self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
             out = conv1(out, latent[:, i], noise=noise1)
-            features["conv1_{}".format(i)] = out
+            features[f"conv1_{i}"] = out
             out = conv2(out, latent[:, i + 1], noise=noise2)
-            features["conv2_{}".format(i)] = out
+            features[f"conv2_{i}"] = out
             skip = to_rgb(out, latent[:, i + 2], skip)
-            features["skip_{}".format(i)] = skip
+            features[f"skip_{i}"] = skip
 
             i += 2
 
@@ -721,11 +695,11 @@ class StyleDiscriminator(nn.Module):
     def forward(self, input):
         h = input
         h_list = []
-        
-        for index, blocklist in enumerate(self.convs):
+
+        for blocklist in self.convs:
             h = blocklist(h)
             h_list.append(h)
-         
+
         out = h
         batch, channel, height, width = out.shape
         group = min(batch, self.stddev_group)
@@ -739,10 +713,10 @@ class StyleDiscriminator(nn.Module):
 
         out = self.final_conv(out)
         h_list.append(out)
-        
+
         out = out.view(batch, -1)
         out = self.final_linear(out)
-        
+
         return out, h_list
 
 

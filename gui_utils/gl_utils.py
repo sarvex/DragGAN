@@ -212,9 +212,7 @@ class Texture:
             return False
         if channels is not None and self.channels != channels:
             return False
-        if dtype is not None and self.dtype != dtype:
-            return False
-        return True
+        return dtype is None or self.dtype == dtype
 
 #----------------------------------------------------------------------------
 

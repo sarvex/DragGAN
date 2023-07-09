@@ -79,10 +79,11 @@ def item_width(width=None):
 
 def scoped_by_object_id(method):
     def decorator(self, *args, **kwargs):
-        imgui.push_id(str(id(self)))
+        imgui.push_id(id(self))
         res = method(self, *args, **kwargs)
         imgui.pop_id()
         return res
+
     return decorator
 
 #----------------------------------------------------------------------------
@@ -112,8 +113,7 @@ def collapsing_header(text, visible=None, flags=0, default=False, enabled=True, 
 def popup_button(label, width=0, enabled=True):
     if button(label, width, enabled):
         imgui.open_popup(label)
-    opened = imgui.begin_popup(label)
-    return opened
+    return imgui.begin_popup(label)
 
 #----------------------------------------------------------------------------
 

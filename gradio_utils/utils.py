@@ -150,5 +150,4 @@ def get_latest_points_pair(points_dict):
     if not points_dict:
         return None
     point_idx = list(points_dict.keys())
-    latest_point_idx = max(point_idx)
-    return latest_point_idx
+    return max(point_idx)

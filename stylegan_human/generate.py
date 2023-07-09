@@ -55,7 +55,7 @@ def generate_images(
     version: int
 ):
 
-    print('Loading networks from "%s"...' % network_pkl)
+    print(f'Loading networks from "{network_pkl}"...')
     if version == 1: 
         import dnnlib.tflib as tflib
         tflib.init_tf()
@@ -83,11 +83,10 @@ def generate_images(
             print('Generating image for seed %d (%d/%d) ...' % (seed, seed_idx, len(seeds)))
 
         if version == 1: ## stylegan v1
-            z =  np.random.RandomState(seed).randn(1, Gs.input_shape[1])     
+            z =  np.random.RandomState(seed).randn(1, Gs.input_shape[1])
             # Generate image.
             fmt = dict(func=tflib.convert_images_to_uint8, nchw_to_nhwc=True)
-            if noise_mode == 'const': randomize_noise=False
-            else: randomize_noise = True
+            randomize_noise = noise_mode != 'const'
             images = Gs.run(z, None, truncation_psi=truncation_psi, randomize_noise=randomize_noise, output_transform=fmt)
             PIL.Image.fromarray(images[0], 'RGB').save(f'{outdir}/seed{seed:04d}.png')
 

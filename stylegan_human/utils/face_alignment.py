@@ -16,14 +16,12 @@ def get_landmark(img, detector, predictor):
     # detector = dlib.get_frontal_face_detector()
     # dets, _, _ = detector.run(img, 1, -1)
     dets = detector(img, 1)
-    for k, d in enumerate(dets):
+    for d in dets:
         shape = predictor(img, d.rect)
     t = list(shape.parts())
-    a = []
-    for tt in t:
-        a.append([tt.x, tt.y])
+    a = [[tt.x, tt.y] for tt in t]
     lm = np.array(a)
-    
+
     # face rect
     face_rect = [dets[0].rect.left(), dets[0].rect.top(), dets[0].rect.right(), dets[0].rect.bottom()]
     return lm, face_rect
@@ -39,7 +37,7 @@ def align_face_for_insetgan(img, detector, predictor, output_size=256):
     img_cp = copy.deepcopy(img)
     lm, face_rect = get_landmark(img, detector, predictor)
 
-    lm_chin = lm[0: 17]  # left-right
+    lm_chin = lm[:17]
     lm_eyebrow_left = lm[17: 22]  # left-right
     lm_eyebrow_right = lm[22: 27]  # left-right
     lm_nose = lm[27: 31]  # top-down
@@ -88,13 +86,13 @@ def align_face_for_insetgan(img, detector, predictor, output_size=256):
     border = max(int(np.rint(qsize * 0.1)), 3)
     crop = (int(np.floor(min(quad[:, 0]))), int(np.floor(min(quad[:, 1]))), int(np.ceil(max(quad[:, 0]))),
             int(np.ceil(max(quad[:, 1]))))
-    
+
     # crop = (max(crop[0] - border, 0), max(crop[1] - border, 0), min(crop[2] + border, img.size[0]),
     #         min(crop[3] + border, img.size[1]))
     # img.save("debug/raw.jpg")
     if crop[2] - crop[0] < img.size[0] or crop[3] - crop[1] < img.size[1]:
         img = img.crop(crop)
-        quad -= crop[0:2]
+        quad -= crop[:2]
     # img.save("debug/crop.jpg")
     # Pad.
     # pad = (int(np.floor(min(quad[:, 0]))), int(np.floor(min(quad[:, 1]))), int(np.ceil(max(quad[:, 0]))),
@@ -120,7 +118,7 @@ def align_face_for_insetgan(img, detector, predictor, output_size=256):
     # print(img.size, quad+0.5, np.bound((quad+0.5).flatten()))
     # assert False
     # img = img.transform((transform_size, transform_size), PIL.Image.QUAD, (quad + 0.5).flatten(), PIL.Image.BILINEAR)
-    
+
     # img.save("debug/transform.jpg")
     # if output_size < transform_size:
     img = img.resize((output_size, output_size), PIL.Image.ANTIALIAS)
@@ -128,7 +126,7 @@ def align_face_for_insetgan(img, detector, predictor, output_size=256):
     # print((quad+crop[0:2]).flatten())
     # assert False
     # Return aligned image.
-    
+
     return img, crop, face_rect
 
 
@@ -144,7 +142,7 @@ def align_face_for_projector(img, detector, predictor, output_size):
     lm, face_rect = get_landmark(img, detector, predictor)
 
 
-    lm_chin = lm[0: 17]  # left-right
+    lm_chin = lm[:17]
     lm_eyebrow_left = lm[17: 22]  # left-right
     lm_eyebrow_right = lm[22: 27]  # left-right
     lm_nose = lm[27: 31]  # top-down
@@ -195,7 +193,7 @@ def align_face_for_projector(img, detector, predictor, output_size):
             min(crop[3] + border, img.size[1]))
     if crop[2] - crop[0] < img.size[0] or crop[3] - crop[1] < img.size[1]:
         img = img.crop(crop)
-        quad -= crop[0:2]
+        quad -= crop[:2]
 
     # Pad.
     pad = (int(np.floor(min(quad[:, 0]))), int(np.floor(min(quad[:, 1]))), int(np.ceil(max(quad[:, 0]))),

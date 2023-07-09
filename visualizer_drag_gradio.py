@@ -25,10 +25,7 @@ device = 'cuda'
 
 
 def reverse_point_pairs(points):
-    new_points = []
-    for p in points:
-        new_points.append([p[1], p[0]])
-    return new_points
+    return [[p[1], p[0]] for p in points]
 
 
 def clear_state(global_state, target=None):
@@ -42,7 +39,7 @@ def clear_state(global_state, target=None):
     if not isinstance(target, list):
         target = [target]
     if 'point' in target:
-        global_state['points'] = dict()
+        global_state['points'] = {}
         print('Clear Points State!')
     if 'mask' in target:
         image_raw = global_state["images"]["image_raw"]
@@ -114,10 +111,7 @@ def preprocess_mask_info(global_state, image):
         2.1 global_state is remove_mask:
         2.2 global_state is add_mask:
     """
-    if isinstance(image, dict):
-        last_mask = get_valid_mask(image['mask'])
-    else:
-        last_mask = None
+    last_mask = get_valid_mask(image['mask']) if isinstance(image, dict) else None
     mask = global_state['mask']
 
     # mask in global state is a placeholder with all 1.
@@ -130,12 +124,12 @@ def preprocess_mask_info(global_state, image):
     if last_mask is None:
         return global_state
 
-    if editing_mode == 'remove_mask':
-        updated_mask = np.clip(mask - last_mask, 0, 1)
-        print(f'Last editing_state is {editing_mode}, do remove.')
-    elif editing_mode == 'add_mask':
+    if editing_mode == 'add_mask':
         updated_mask = np.clip(mask + last_mask, 0, 1)
         print(f'Last editing_state is {editing_mode}, do add.')
+    elif editing_mode == 'remove_mask':
+        updated_mask = np.clip(mask - last_mask, 0, 1)
+        print(f'Last editing_state is {editing_mode}, do remove.')
     else:
         updated_mask = mask
         print(f'Last editing_state is {editing_mode}, '
@@ -439,10 +433,6 @@ with gr.Blocks() as app:
     )
 
     def on_click_start(global_state, image):
-        p_in_pixels = []
-        t_in_pixels = []
-        valid_points = []
-
         # handle of start drag in mask editing mode
         global_state = preprocess_mask_info(global_state, image)
 
@@ -485,6 +475,10 @@ with gr.Blocks() as app:
                 gr.Number.update(interactive=True),
             )
         else:
+
+            p_in_pixels = []
+            t_in_pixels = []
+            valid_points = []
 
             # Transform the points into torch tensors
             for key_point, point in global_state["points"].items():
@@ -693,7 +687,7 @@ with gr.Blocks() as app:
 
         choices = list(global_state["points"].keys())
 
-        if len(choices) > 0:
+        if choices:
             global_state["curr_point"] = choices[0]
 
         return (

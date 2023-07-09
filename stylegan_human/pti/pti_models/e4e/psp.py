@@ -10,8 +10,7 @@ from pti.pti_models.e4e.stylegan2.model import Generator
 def get_keys(d, name):
     if 'state_dict' in d:
         d = d['state_dict']
-    d_filt = {k[len(name) + 1:]: v for k, v in d.items() if k[:len(name)] == name}
-    return d_filt
+    return {k[len(name) + 1:]: v for k, v in d.items() if k[:len(name)] == name}
 
 
 class pSp(nn.Module):
@@ -34,12 +33,14 @@ class pSp(nn.Module):
         elif self.opts.encoder_type == 'SingleStyleCodeEncoder':
             encoder = psp_encoders.BackboneEncoderUsingLastLayerIntoW(50, 'ir_se', self.opts)
         else:
-            raise Exception('{} is not a valid encoders'.format(self.opts.encoder_type))
+            raise Exception(f'{self.opts.encoder_type} is not a valid encoders')
         return encoder
 
     def load_weights(self):
         if self.opts.checkpoint_path is not None:
-            print('Loading e4e over the pSp framework from checkpoint: {}'.format(self.opts.checkpoint_path))
+            print(
+                f'Loading e4e over the pSp framework from checkpoint: {self.opts.checkpoint_path}'
+            )
             ckpt = torch.load(self.opts.checkpoint_path, map_location='cpu')
             self.encoder.load_state_dict(get_keys(ckpt, 'encoder'), strict=True)
             self.decoder.load_state_dict(get_keys(ckpt, 'decoder'), strict=True)
@@ -68,14 +69,13 @@ class pSp(nn.Module):
 
         if latent_mask is not None:
             for i in latent_mask:
-                if inject_latent is not None:
-                    if alpha is not None:
-                        codes[:, i] = alpha * inject_latent[:, i] + (1 - alpha) * codes[:, i]
-                    else:
-                        codes[:, i] = inject_latent[:, i]
-                else:
+                if inject_latent is None:
                     codes[:, i] = 0
 
+                elif alpha is not None:
+                    codes[:, i] = alpha * inject_latent[:, i] + (1 - alpha) * codes[:, i]
+                else:
+                    codes[:, i] = inject_latent[:, i]
         input_is_latent = not input_code
         images, result_latent = self.decoder([codes],
                                              input_is_latent=input_is_latent,
@@ -85,10 +85,7 @@ class pSp(nn.Module):
         if resize:
             images = self.face_pool(images)
 
-        if return_latents:
-            return images, result_latent
-        else:
-            return images
+        return (images, result_latent) if return_latents else images
 
     def __load_latent_avg(self, ckpt, repeat=None):
         if 'latent_avg' in ckpt:

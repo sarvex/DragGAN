@@ -87,11 +87,9 @@ class Predictor:
             self.cost_averager = TimeAverager()
 
     def preprocess(self, img):
-        ori_shapes = []
-        processed_imgs = []
         processed_img = self.compose(img)[0]
-        processed_imgs.append(processed_img)
-        ori_shapes.append(img.shape)
+        processed_imgs = [processed_img]
+        ori_shapes = [img.shape]
         return processed_imgs, ori_shapes
 
     def run(self, img, bg):

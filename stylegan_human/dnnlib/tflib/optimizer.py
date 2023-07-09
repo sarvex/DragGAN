@@ -101,7 +101,7 @@ class Optimizer:
         device.grad_acc         = OrderedDict() # Accumulated gradients:    var => grad
 
         # Setup TensorFlow objects.
-        with tfutil.absolute_name_scope(self.scope + "/Devices"), tf.device(device_name), tf.control_dependencies(None):
+        with (tfutil.absolute_name_scope(f"{self.scope}/Devices"), tf.device(device_name), tf.control_dependencies(None)):
             if device_name not in self._shared_optimizers:
                 optimizer_name = self.scope.replace("/", "_") + "_opt%d" % len(self._shared_optimizers)
                 self._shared_optimizers[device_name] = self.optimizer_class(name=optimizer_name, learning_rate=self.learning_rate, **self.optimizer_kwargs)
@@ -138,13 +138,18 @@ class Optimizer:
         if self._report_mem_usage:
             self._report_mem_usage = False
             try:
-                with tf.name_scope(self.id + '_mem'), tf.device(device.name), tf.control_dependencies([loss]):
-                    deps.append(autosummary.autosummary(self.id + "/mem_usage_gb", tf.contrib.memory_stats.BytesInUse() / 2**30))
+                with (tf.name_scope(f'{self.id}_mem'), tf.device(device.name), tf.control_dependencies([loss])):
+                    deps.append(
+                        autosummary.autosummary(
+                            f"{self.id}/mem_usage_gb",
+                            tf.contrib.memory_stats.BytesInUse() / 2**30,
+                        )
+                    )
             except tf.errors.NotFoundError:
                 pass
 
         # Compute gradients.
-        with tf.name_scope(self.id + "_grad"), tf.device(device.name), tf.control_dependencies(deps):
+        with (tf.name_scope(f"{self.id}_grad"), tf.device(device.name), tf.control_dependencies(deps)):
             loss = self.apply_loss_scaling(tf.cast(loss, tf.float32))
             gate = tf.train.Optimizer.GATE_NONE  # disable gating to reduce memory usage
             grad_list = device.optimizer.compute_gradients(loss=loss, var_list=trainable_vars, gate_gradients=gate)
@@ -169,7 +174,7 @@ class Optimizer:
 
         # Clean up gradients.
         for device_idx, device in enumerate(self._devices.values()):
-            with tfutil.absolute_name_scope(self.scope + "/Clean%d" % device_idx), tf.device(device.name):
+            with (tfutil.absolute_name_scope(self.scope + "/Clean%d" % device_idx), tf.device(device.name)):
                 for var, grad in device.grad_raw.items():
 
                     # Filter out disconnected gradients and convert to float32.
@@ -177,7 +182,7 @@ class Optimizer:
                     grad = [tf.cast(g, tf.float32) for g in grad]
 
                     # Sum within the device.
-                    if len(grad) == 0:
+                    if not grad:
                         grad = tf.zeros(var.shape)  # No gradients => zero.
                     elif len(grad) == 1:
                         grad = grad[0]              # Single gradient => use as is.
@@ -194,7 +199,7 @@ class Optimizer:
 
         # Sum gradients across devices.
         if len(self._devices) > 1:
-            with tfutil.absolute_name_scope(self.scope + "/Broadcast"), tf.device(None):
+            with (tfutil.absolute_name_scope(f"{self.scope}/Broadcast"), tf.device(None)):
                 for all_vars in zip(*[device.grad_clean.keys() for device in self._devices.values()]):
                     if len(all_vars) > 0 and all(dim > 0 for dim in all_vars[0].shape.as_list()): # NCCL does not support zero-sized tensors.
                         all_grads = [device.grad_clean[var] for device, var in zip(self._devices.values(), all_vars)]
@@ -204,7 +209,7 @@ class Optimizer:
 
         # Apply updates separately on each device.
         for device_idx, device in enumerate(self._devices.values()):
-            with tfutil.absolute_name_scope(self.scope + "/Apply%d" % device_idx), tf.device(device.name):
+            with (tfutil.absolute_name_scope(self.scope + "/Apply%d" % device_idx), tf.device(device.name)):
                 # pylint: disable=cell-var-from-loop
 
                 # Accumulate gradients over time.
@@ -249,10 +254,25 @@ class Optimizer:
 
                 # Last device => report statistics.
                 if device_idx == len(self._devices) - 1:
-                    all_ops.append(autosummary.autosummary(self.id + "/learning_rate", self.learning_rate))
-                    all_ops.append(autosummary.autosummary(self.id + "/overflow_frequency", tf.where(all_ok, 0, 1), condition=acc_ok))
+                    all_ops.extend(
+                        (
+                            autosummary.autosummary(
+                                f"{self.id}/learning_rate", self.learning_rate
+                            ),
+                            autosummary.autosummary(
+                                f"{self.id}/overflow_frequency",
+                                tf.where(all_ok, 0, 1),
+                                condition=acc_ok,
+                            ),
+                        )
+                    )
                     if self.use_loss_scaling:
-                        all_ops.append(autosummary.autosummary(self.id + "/loss_scaling_log2", device.loss_scaling_var))
+                        all_ops.append(
+                            autosummary.autosummary(
+                                f"{self.id}/loss_scaling_log2",
+                                device.loss_scaling_var,
+                            )
+                        )
 
         # Initialize variables.
         self.reset_optimizer_state()

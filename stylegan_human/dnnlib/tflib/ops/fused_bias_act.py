@@ -15,7 +15,7 @@ from .. import custom_ops
 from ...util import EasyDict
 
 def _get_plugin():
-    return custom_ops.get_plugin(os.path.splitext(__file__)[0] + '.cu')
+    return custom_ops.get_plugin(f'{os.path.splitext(__file__)[0]}.cu')
 
 #----------------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ def _fused_bias_act_ref(x, b, axis, act, alpha, gain):
     x = tf.convert_to_tensor(x)
     b = tf.convert_to_tensor(b) if b is not None else tf.constant([], dtype=x.dtype)
     act_spec = activation_funcs[act]
-    assert b.shape.rank == 1 and (b.shape[0] == 0 or b.shape[0] == x.shape[axis])
+    assert b.shape.rank == 1 and b.shape[0] in [0, x.shape[axis]]
     assert b.shape[0] == 0 or 0 <= axis < x.shape.rank
     if alpha is None:
         alpha = act_spec.def_alpha
@@ -107,7 +107,7 @@ def _fused_bias_act_cuda(x, b, axis, act, alpha, gain):
     empty_tensor = tf.constant([], dtype=x.dtype)
     b = tf.convert_to_tensor(b) if b is not None else empty_tensor
     act_spec = activation_funcs[act]
-    assert b.shape.rank == 1 and (b.shape[0] == 0 or b.shape[0] == x.shape[axis])
+    assert b.shape.rank == 1 and b.shape[0] in [0, x.shape[axis]]
     assert b.shape[0] == 0 or 0 <= axis < x.shape.rank
     if alpha is None:
         alpha = act_spec.def_alpha
@@ -136,6 +136,7 @@ def _fused_bias_act_cuda(x, b, axis, act, alpha, gain):
         dx = cuda_kernel(x=dy, b=empty_tensor, ref=ref, grad=1, **cuda_kwargs)
         dx.set_shape(x.shape)
         return dx
+
     def grad_db(dx):
         if b.shape[0] == 0:
             return empty_tensor
@@ -153,6 +154,7 @@ def _fused_bias_act_cuda(x, b, axis, act, alpha, gain):
         d_dy = cuda_kernel(x=d_dx, b=d_db, ref=ref, grad=1, **cuda_kwargs)
         d_dy.set_shape(x.shape)
         return d_dy
+
     def grad2_d_x(d_dx, d_db, x, y):
         ref = {'x': x, 'y': y}[act_spec.ref]
         d_x = cuda_kernel(x=d_dx, b=d_db, ref=ref, grad=2, **cuda_kwargs)

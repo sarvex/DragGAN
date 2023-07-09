@@ -65,7 +65,7 @@ def _create_var(name: str, value_expr: TfExpression) -> TfExpression:
         v = [size_expr, tf.reduce_sum(v), tf.reduce_sum(tf.square(v))]
     v = tf.cond(tf.is_finite(v[1]), lambda: tf.stack(v), lambda: tf.zeros(3, dtype=_dtype))
 
-    with tfutil.absolute_name_scope("Autosummary/" + name_id), tf.control_dependencies(None):
+    with (tfutil.absolute_name_scope(f"Autosummary/{name_id}"), tf.control_dependencies(None)):
         var = tf.Variable(tf.zeros(3, dtype=_dtype), trainable=False)  # [sum(1), sum(x), sum(x**2)]
     update_op = tf.cond(tf.is_variable_initialized(var), lambda: tf.assign_add(var, v), lambda: tf.assign(var, v))
 
@@ -97,7 +97,7 @@ def autosummary(name: str, value: TfExpressionEx, passthru: TfExpressionEx = Non
     name_id = name.replace("/", "_")
 
     if tfutil.is_tf_expression(value):
-        with tf.name_scope("summary_" + name_id), tf.device(value.device):
+        with (tf.name_scope(f"summary_{name_id}"), tf.device(value.device)):
             condition = tf.convert_to_tensor(condition, name='condition')
             update_op = tf.cond(condition, lambda: tf.group(_create_var(name, value)), tf.no_op)
             with tf.control_dependencies([update_op]):
@@ -108,7 +108,7 @@ def autosummary(name: str, value: TfExpressionEx, passthru: TfExpressionEx = Non
         assert not tfutil.is_tf_expression(condition)
         if condition:
             if name not in _immediate:
-                with tfutil.absolute_name_scope("Autosummary/" + name_id), tf.device(None), tf.control_dependencies(None):
+                with (tfutil.absolute_name_scope(f"Autosummary/{name_id}"), tf.device(None), tf.control_dependencies(None)):
                     update_value = tf.placeholder(_dtype)
                     update_op = _create_var(name, update_value)
                     _immediate[name] = update_op, update_value
@@ -131,21 +131,21 @@ def finalize_autosummaries() -> None:
     tfutil.init_uninitialized_vars([var for vars_list in _vars.values() for var in vars_list])
 
     # Create summary ops.
-    with tf.device(None), tf.control_dependencies(None):
+    with (tf.device(None), tf.control_dependencies(None)):
         for name, vars_list in _vars.items():
             name_id = name.replace("/", "_")
-            with tfutil.absolute_name_scope("Autosummary/" + name_id):
+            with tfutil.absolute_name_scope(f"Autosummary/{name_id}"):
                 moments = tf.add_n(vars_list)
                 moments /= moments[0]
                 with tf.control_dependencies([moments]):  # read before resetting
                     reset_ops = [tf.assign(var, tf.zeros(3, dtype=_dtype)) for var in vars_list]
-                    with tf.name_scope(None), tf.control_dependencies(reset_ops):  # reset before reporting
+                    with (tf.name_scope(None), tf.control_dependencies(reset_ops)):  # reset before reporting
                         mean = moments[1]
                         std = tf.sqrt(moments[2] - tf.square(moments[1]))
                         tf.summary.scalar(name, mean)
                         if enable_custom_scalars:
-                            tf.summary.scalar("xCustomScalars/" + name + "/margin_lo", mean - std)
-                            tf.summary.scalar("xCustomScalars/" + name + "/margin_hi", mean + std)
+                            tf.summary.scalar(f"xCustomScalars/{name}/margin_lo", mean - std)
+                            tf.summary.scalar(f"xCustomScalars/{name}/margin_hi", mean + std)
 
     # Setup layout for custom scalars.
     layout = None
@@ -164,12 +164,14 @@ def finalize_autosummaries() -> None:
         for cat_name, chart_dict in cat_dict.items():
             charts = []
             for chart_name, series_names in chart_dict.items():
-                series = []
-                for series_name in series_names:
-                    series.append(layout_pb2.MarginChartContent.Series(
+                series = [
+                    layout_pb2.MarginChartContent.Series(
                         value=series_name,
-                        lower="xCustomScalars/" + series_name + "/margin_lo",
-                        upper="xCustomScalars/" + series_name + "/margin_hi"))
+                        lower=f"xCustomScalars/{series_name}/margin_lo",
+                        upper=f"xCustomScalars/{series_name}/margin_hi",
+                    )
+                    for series_name in series_names
+                ]
                 margin = layout_pb2.MarginChartContent(series=series)
                 charts.append(layout_pb2.Chart(title=chart_name, margin=margin))
             categories.append(layout_pb2.Category(title=cat_name, chart=charts))

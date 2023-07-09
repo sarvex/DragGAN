@@ -41,7 +41,7 @@ def setup_snapshot_image_grid(training_set, random_seed=0):
 
     else:
         # Group training samples by label.
-        label_groups = dict() # label => [idx, ...]
+        label_groups = {}
         for idx in range(len(training_set)):
             label = tuple(training_set.get_details(idx).raw_label.flat[::-1])
             if label not in label_groups:
